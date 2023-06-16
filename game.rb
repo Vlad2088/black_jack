@@ -5,15 +5,11 @@ require_relative 'player'
 require_relative 'validation_error'
 
 class Game
-
-  attr_reader :cards, :cards_game, :cash, :name
+  BETTING = 10
 
   #Добавить колоду
   def initialize
-    @player
-    @player_points = 0
     @dealer = Dealer.new('Dealer')
-    @dealer_points = 0
     @bank = 0
   end
 
@@ -36,8 +32,13 @@ class Game
     end
   end
 
+  private
+
+  attr_reader :cards, :cards_game, :player, :dealer
+  attr_accessor :bank
+
   def control
-    puts "Добро пожаловать в игру #{@player.name}"
+    puts "Добро пожаловать в игру #{player.name}"
     loop do
       puts [
         'Выберете:',
@@ -49,13 +50,13 @@ class Game
       input = gets.to_i
       case input
         when 1
-          puts "На Вашем счету: #{@player.cash} монет."
+          puts "На Вашем счету: #{player.cash} монет."
         when 2
-          bank
-          sleep 2
-          player_game
-          dealer_game
-          check_point
+          self.bank = load_bank
+          sleep(2)
+          player_points = run_player_game
+          dealer_points = run_dealer_game
+          self.bank = check_points(bank, player_points, dealer_points)
         when 0
           break
       end
@@ -73,35 +74,38 @@ class Game
   end
 
   #Положить деньги в банк
-  def bank
-    @player.cash_in_bank
-    @dealer.cash_in_bank
+  def load_bank
+    player.charge
+    dealer.charge
 
-    @bank += 20
-    puts "Банк пополнен! В банке #{@bank} монет." 
+    bank = BETTING * 2
+    puts "Банк пополнен! В банке #{bank} монет." 
+    bank
   end
   
   #игра дилера
-  def dealer_game
-    @dealer.card_distribution
-    @dealer_points = @dealer.scoring
+  def run_dealer_game
+    dealer.card_distribution
+    dealer_points = dealer.scoring
     puts 'У Дилера 2 карты **.'
-    sleep 2
+    sleep(2)
 
-    if @dealer_points <= 17
-      @dealer.add_card
-      @dealer_points = @dealer.scoring
+    if dealer_points <= 17
+      dealer.add_card
+      dealer_points = dealer.scoring
       puts 'Дилер взял еще 1 карту. У дилера 3 карты ***.'
     else
       puts 'Дилер готов открыть карты'
     end
+
+    dealer_points
   end
 
   #игра пользователя
-  def player_game
-    @player.card_distribution
-    @player_points = @player.scoring
-    puts "Ваши карты: #{@player.cards_game.join(', ')}. Сумма Ваших очков: #{@player_points}"
+  def run_player_game
+    player.card_distribution
+    player_points = player.scoring
+    puts "Ваши карты: #{player.cards_game.join(', ')}. Сумма Ваших очков: #{player_points}"
 
     puts [
       'Добавить еще 1 карту?',
@@ -111,43 +115,50 @@ class Game
     num = gets.to_i
 
     if num == 1 
-      @player.add_card
-      @player_points = @player.scoring
-      puts "Ваши карты: #{@player.cards_game.join(', ')}. Сумма Ваших очков: #{@player_points}"
+      player.add_card
+      player_points = player.scoring
+      puts "Ваши карты: #{player.cards_game.join(', ')}. Сумма Ваших очков: #{player_points}"
     else
       puts 'Вы отказались от дополнительной карты!'
     end
+    player_points
   end
 
-  def check_point
+  def check_points(bank, player_points, dealer_points)
     puts 'Внимание идет подсчет очков!'
-    sleep 5
+    sleep(5)
 
-    if @dealer_points > 21 || @player_points == 21 || @player_points > @dealer_points && @player_points < 21
-      @player.get_a_win(@bank)
-      @bank -= 20
+    if dealer_points > 21 && player_points > 21
+      player.get_a_win(10)
+      dealer.get_a_win(10)
 
-      puts ["Победил #{@player.name}!",
-        "Количество очков Дилера: #{@dealer_points}",
-        "Количество Ваших очков: #{@player_points}"
+      puts 'Все проиграли! Монеты возвращаются!'
+      
+    elsif dealer_points > 21 || player_points == 21 || player_points > dealer_points && player_points < 21
+      player.get_a_win(bank)
+
+      puts ["Победил #{player.name}!",
+        "Количество очков Дилера: #{dealer_points}",
+        "Количество Ваших очков: #{player_points}"
       ]
 
-    elsif @player_points > 21 || @dealer_points > @player_points 
-      @dealer.get_a_win(@bank)
-      @bank -= 20
+    elsif player_points > 21 || dealer_points > player_points
+      dealer.get_a_win(bank)
 
       puts [
         "Победил Дилер!",
-        "Количество очков Дилера: #{@dealer_points}",
-        "Количество Ваших очков: #{@player_points}"
+        "Количество очков Дилера: #{dealer_points}",
+        "Количество Ваших очков: #{player_points}"
       ]
-    else @dealer_points == @player_points
-      @player.get_a_win(10)
-      @dealer.get_a_win(10)
-      @bank -= 20
+    else dealer_points == player_points
+      player.get_a_win(10)
+      dealer.get_a_win(10)
 
       puts 'У вас ничья! Монеты делятся поровну!'
     end
+
+    bank -= 20
+    bank
   end
 
 end

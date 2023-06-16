@@ -23,8 +23,8 @@ class User
     @deck.cards = @deck.cards - cards
   end
 
-  def cash_in_bank
-    @cash -= 10
+  def charge
+    @cash -= Game::BETTING
   end
 
   def get_a_win(index)
@@ -33,26 +33,19 @@ class User
 
 
   def scoring
-    sum = 0
-    ace_count = 0
+    total_points = 0
 
     @cards_game.each do |card|
       value = card.value
-      if value == 'A'
-        ace_count += 1
-        sum += 11
-      elsif %w[J Q K].include?(value)
-        sum += 10
-      else
-        sum += value.to_i
-      end
+
+      points = CardDeck::CARD_VALUES[value]
+      total_points += points
     end
 
-    while sum > 21 && ace_count > 0
-      sum -= 10
-      ace_count -= 1
+    @cards_game.select { |card| card.suit.start_with?('A') }.count.times do
+      total_points -= 10 if total_points > 21
     end
 
-    sum
+    total_points
   end
 end
